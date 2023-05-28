@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+    <meta charset="UTF-8">
+    <title>VideoChat</title>
+    <style>
+        body {
+            text-align: center;
+        }
+        
+        video {
+            width: 500px;
+            height: 500px;
+            margin: 20px;
+        }
+        
+        button {
+            padding: 5px;
+            background-color: seagreen;
+            color: white;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div>
+        <video id="video" name="video" controls autoplay></video>
+    </div>
+    <div>
+        <button id="button">Start Video</button>
+    </div>
+</body>
+{% csrf_token %}
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+<script>
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    let mediaRecorder;
+    let chunks = [];
+
+    (function() {
+        "use strict";
+        document.addEventListener('click', async event => {
+            if (event.target.id === 'button') {
+                const stream = await window.navigator.mediaDevices.getUserMedia({
+                    video: true
+                });
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                video.play();
+
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = function(e) {
+                    chunks.push(e.data);
+                };
+
+                mediaRecorder.start(10000);
+            }
+        });
+
+        setInterval(function() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                mediaRecorder.start(10000);
+                const blob = new Blob(chunks, {
+                    type: 'video/webm'
+                });
+
+                let formData = new FormData();
+                formData.append("video", blob, 'video.webm');
+                $.ajax({
+                    url: "/webcam/",
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    headers: {
+                        'X-CSRFToken': csrftoken
+                    },
+                    success: function(data) {
+                        console.log('Video uploaded successfully.');
+                    },
+                    error: function(error) {
+                        console.log('Error uploading video:', error);
+                    }
+                });
+                chunks = [];
+            }
+        }, 30000)
+    })();
+</script>
+
+</html>
